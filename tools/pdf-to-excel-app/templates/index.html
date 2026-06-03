@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF to Excel Converter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="app-logo" href="/">
+      <span class="app-logo__mark">◆</span>
+      <span class="app-logo__text">Toolsopedia</span>
+    </a>
+  </header>
+  <div class="card">
+    <h1>📄 PDF to Excel</h1>
+    <p class="subtitle">Upload a PDF and get an Excel file instantly.</p>
+
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+      <label class="drop-zone" id="drop-zone">
+        <span id="drop-text">Drag &amp; drop your PDF here<br/><small>or click to browse</small></span>
+        <input type="file" name="file" id="file-input" accept=".pdf" required />
+      </label>
+      <div class="options">
+        <p class="option-title">If the PDF has multiple pages:</p>
+        <label class="option">
+          <input type="radio" name="sheet_mode" value="multi" checked />
+          Separate sheets (one per page)
+        </label>
+        <label class="option">
+          <input type="radio" name="sheet_mode" value="single" />
+          Single sheet (append all pages)
+        </label>
+      </div>
+      <button type="submit" id="submit-btn">Convert to Excel</button>
+      <a class="other-tools" href="/">Try Other Tools</a>
+    </form>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-card">
+      <button class="close-btn" id="cancel-btn" title="Cancel conversion">×</button>
+      <div class="spinner"></div>
+      <h2>Converting…</h2>
+      <p class="loading-text">Page <strong id="current-page">0</strong> of <strong id="total-pages">0</strong></p>
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <p class="countdown"><strong id="percent">0</strong>% complete</p>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const dropText  = document.getElementById('drop-text');
+    const form = document.getElementById('upload-form');
+    const loading = document.getElementById('loading');
+    const currentPageEl = document.getElementById('current-page');
+    const totalPagesEl = document.getElementById('total-pages');
+    const percentEl = document.getElementById('percent');
+    const progressBar = document.getElementById('progress-bar');
+    const cancelBtn = document.getElementById('cancel-btn');
+    let activeJobId = null;
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('hover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('hover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        dropText.textContent = e.dataTransfer.files[0].name;
+      }
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) dropText.textContent = fileInput.files[0].name;
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files.length) return;
+
+      loading.classList.add('show');
+      percentEl.textContent = '0';
+      progressBar.style.width = '0%';
+
+      const formData = new FormData(form);
+      const response = await fetch('convert', { method: 'POST', body: formData });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        loading.classList.remove('show');
+        alert(payload.error || 'Conversion failed.');
+        return;
+      }
+
+      const jobId = payload.job_id;
+      activeJobId = jobId;
+
+      const poll = setInterval(async () => {
+        const res = await fetch(`progress/${jobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+
+        currentPageEl.textContent = job.current_page || 0;
+        totalPagesEl.textContent = job.total_pages || 0;
+        percentEl.textContent = job.percent || 0;
+        progressBar.style.width = `${job.percent || 0}%`;
+
+        if (job.status === 'done') {
+          clearInterval(poll);
+          window.location.href = `result/${jobId}`;
+        }
+
+        if (job.status === 'cancelled') {
+          clearInterval(poll);
+          loading.classList.remove('show');
+          activeJobId = null;
+          return;
+        }
+
+        if (job.status === 'error') {
+          clearInterval(poll);
+          loading.classList.remove('show');
+          alert(job.error || 'Conversion failed.');
+        }
+      }, 500);
+    });
+
+    cancelBtn.addEventListener('click', async () => {
+      if (!activeJobId) return;
+      await fetch(`cancel/${activeJobId}`, { method: 'POST' });
+      activeJobId = null;
+      loading.classList.remove('show');
+    });
+  </script>
+</body>
+</html>

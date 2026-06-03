@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download – PDF to Excel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="app-logo" href="/">
+      <span class="app-logo__mark">◆</span>
+      <span class="app-logo__text">Toolsopedia</span>
+    </a>
+  </header>
+  <div class="card">
+    <div class="success-icon">✅</div>
+    <h1>Conversion Complete!</h1>
+    <p class="subtitle">Your Excel file is ready: <strong>{{ filename }}</strong></p>
+    <div class="meta">
+      <div>Pages analyzed: <strong>{{ page_count }}</strong></div>
+      <div>Actual time: <strong>{{ elapsed_seconds }}s</strong></div>
+    </div>
+
+    <a href="{{ download_url }}" class="btn btn-primary" download>⬇ Download Excel File</a>
+
+    <div class="share-box">
+      <label for="share-link">🔗 Shareable link</label>
+      <div class="share-row">
+        <input type="text" id="share-link" value="{{ share_url }}" readonly />
+        <button onclick="copyLink()" class="btn btn-copy">Copy</button>
+      </div>
+    </div>
+
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Convert another file</a>
+  </div>
+
+  <script>
+    function copyLink() {
+      const input = document.getElementById('share-link');
+      input.select();
+      document.execCommand('copy');
+      event.target.textContent = 'Copied!';
+      setTimeout(() => event.target.textContent = 'Copy', 2000);
+    }
+  </script>
+</body>
+</html>
